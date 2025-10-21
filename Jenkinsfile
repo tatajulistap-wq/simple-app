@@ -1,36 +1,58 @@
 pipeline {
   agent any
+
   environment {
-  # ubah 'youruser/simple-app' dengan nama kamu dan repo proyek kamu
-    IMAGE_NAME = 'youruser/simple-app'
-  # ubah 'dockerhub-credentials' dengan credential yang sudah kamu buat 
+    IMAGE_NAME = 'tata197/simple-app'              //
     REGISTRY_CREDENTIALS = 'dockerhub-credentials'
   }
+
   stages {
+
     stage('Checkout') {
       steps {
+        echo 'Checkout source code...'
         checkout scm
       }
     }
+
     stage('Build') {
       steps {
-        bat 'echo "Build di Windows"'
+        bat 'echo "Mulai build aplikasi (Windows)"'
       }
     }
+
     stage('Build Docker Image') {
       steps {
-        bat """docker build -t ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ."""
+        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+          bat """
+            echo Login Docker sebelum build...
+            docker login -u %USER% -p %PASS%
+            docker build -t ${env.IMAGE_NAME}:${env.BUILD_NUMBER} .
+            docker logout
+          """
+        }
       }
     }
+
     stage('Push Docker Image') {
       steps {
         withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-          bat """docker login -u %USER% -p %PASS%"""
-          bat """docker push ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"""
-          bat """docker tag ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ${env.IMAGE_NAME}:latest"""
-          bat """docker push ${env.IMAGE_NAME}:latest"""
+          bat """
+            echo Login Docker untuk push...
+            docker login -u %USER% -p %PASS%
+            docker push ${env.IMAGE_NAME}:${env.BUILD_NUMBER}
+            docker tag ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ${env.IMAGE_NAME}:latest
+            docker push ${env.IMAGE_NAME}:latest
+            docker logout
+          """
         }
       }
+    }
+  }
+
+  post {
+    always {
+      echo 'Selesai build pipeline.'
     }
   }
 }
